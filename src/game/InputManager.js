@@ -22,6 +22,7 @@ export default class InputManager {
     this._onKeyUp = this._onKeyUp.bind(this);
 
     this.touchId = null;
+    this.shootRequested = false;
     this._bound = false;
   }
 
@@ -68,13 +69,20 @@ export default class InputManager {
 
   _onTouchStart(e) {
     e.preventDefault();
-    if (this.touchId !== null) return;
-    const touch = e.changedTouches[0];
-    this.touchId = touch.identifier;
-    const pos = this._getCanvasPos(touch.clientX, touch.clientY);
-    this.joystickCenter = { ...pos };
-    this.joystickPos = { ...pos };
-    this.joystickActive = true;
+    for (const touch of e.changedTouches) {
+      const pos = this._getCanvasPos(touch.clientX, touch.clientY);
+      
+      // If no joystick yet, the first touch becomes the joystick
+      if (this.touchId === null) {
+        this.touchId = touch.identifier;
+        this.joystickCenter = { ...pos };
+        this.joystickPos = { ...pos };
+        this.joystickActive = true;
+      } else {
+        // Any other touch is a shoot request
+        this.shootRequested = true;
+      }
+    }
   }
 
   _onTouchMove(e) {
@@ -100,9 +108,14 @@ export default class InputManager {
 
   _onMouseDown(e) {
     const pos = this._getCanvasPos(e.clientX, e.clientY);
-    this.joystickCenter = { ...pos };
-    this.joystickPos = { ...pos };
-    this.joystickActive = true;
+    // On desktop, right click or shift+click or just detecting it
+    if (e.button === 0) { // Left click
+        this.joystickCenter = { ...pos };
+        this.joystickPos = { ...pos };
+        this.joystickActive = true;
+    }
+    // Also trigger shoot on every click for easy testing
+    this.shootRequested = true;
   }
 
   _onMouseMove(e) {
@@ -131,6 +144,12 @@ export default class InputManager {
     } else {
       this.direction = { x: 0, y: 0 };
     }
+  }
+
+  consumeShootRequest() {
+    const req = this.shootRequested;
+    this.shootRequested = false;
+    return req;
   }
 
   _onKeyDown(e) {

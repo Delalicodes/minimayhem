@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { PLAYER_COLORS, PLAYER_NAMES, FONT_FAMILY } from '../game/constants.js';
 
-export default function MenuScreen({ onStart }) {
+export default function MenuScreen({ gameMode, onStart, onBack }) {
   const [humanCount, setHumanCount] = useState(1);
   const [powerUps, setPowerUps] = useState(true);
   const canvasRef = useRef(null);
@@ -62,16 +62,25 @@ export default function MenuScreen({ onStart }) {
     };
   }, []);
 
+  const GAME_INFO = {
+    hot_potato: { icon: '🔥', title: 'HOT POTATO', tagline: 'Pass it fast or get blasted!', color: '#FF6B35' },
+    target_shoot: { icon: '🎯', title: 'TARGET SHOOT', tagline: 'Shoot targets, stun opponents!', color: '#00BFFF' }
+  };
+  const info = GAME_INFO[gameMode] || GAME_INFO.hot_potato;
+
   return (
     <div style={styles.container}>
       <canvas ref={canvasRef} style={styles.bgCanvas} />
 
       <div style={styles.content}>
+        {/* Back button */}
+        <button onClick={onBack} style={styles.backBtn}>← Games</button>
+
         {/* Title */}
         <div style={styles.titleBlock}>
           <div style={styles.subtitle}>MINI MAYHEM</div>
-          <div style={styles.title}>🔥 HOT POTATO 🔥</div>
-          <div style={styles.tagline}>Pass it fast or get blasted!</div>
+          <div style={{ ...styles.title, color: info.color }}>{info.icon} {info.title} {info.icon}</div>
+          <div style={styles.tagline}>{info.tagline}</div>
         </div>
 
         {/* Player Selection */}
@@ -120,7 +129,7 @@ export default function MenuScreen({ onStart }) {
 
         {/* Start Button */}
         <button
-          onClick={() => onStart(humanCount, powerUps)}
+          onClick={() => onStart(gameMode, humanCount, powerUps)}
           style={styles.startBtn}
         >
           <span style={styles.startText}>START GAME</span>
@@ -129,9 +138,18 @@ export default function MenuScreen({ onStart }) {
 
         {/* Instructions */}
         <div style={styles.instructions}>
-          <div style={styles.instructionItem}>📱 Touch & drag to move</div>
-          <div style={styles.instructionItem}>💥 Bump into others to pass the potato</div>
-          <div style={styles.instructionItem}>⏱ Don't hold it when it explodes!</div>
+          <div style={styles.instructionItem}>📱 Touch & drag joystick to move</div>
+          {gameMode === 'hot_potato' ? (
+            <>
+              <div style={styles.instructionItem}>💥 Bump into others to pass the potato</div>
+              <div style={styles.instructionItem}>⏱ Don't hold it when it explodes!</div>
+            </>
+          ) : (
+            <>
+              <div style={styles.instructionItem}>🏹 Stop moving to shoot automatically!</div>
+              <div style={styles.instructionItem}>⏱ Hit moving targets for triple points!</div>
+            </>
+          )}
         </div>
       </div>
     </div>
@@ -178,6 +196,19 @@ const styles = {
     letterSpacing: 6,
     color: 'rgba(255,255,255,0.4)',
     marginBottom: 4,
+  },
+  backBtn: {
+    alignSelf: 'flex-start',
+    background: 'none',
+    border: '1px solid rgba(255,255,255,0.15)',
+    borderRadius: 8,
+    color: 'rgba(255,255,255,0.5)',
+    fontFamily: FONT_FAMILY,
+    fontSize: 12,
+    padding: '6px 14px',
+    cursor: 'pointer',
+    transition: 'all 0.2s',
+    outline: 'none',
   },
   title: {
     fontFamily: FONT_FAMILY,

@@ -1,21 +1,28 @@
 import React, { useState, useCallback } from 'react';
+import GameSelectScreen from './src/screens/GameSelectScreen';
 import MenuScreen from './src/screens/MenuScreen';
 import GameScreen from './src/screens/GameScreen';
 import ResultScreen from './src/screens/ResultScreen';
 
 const SCREENS = {
-  MENU: 'menu',
+  GAME_SELECT: 'game_select',
+  LOBBY: 'lobby',
   GAME: 'game',
   RESULT: 'result',
 };
 
 export default function App() {
-  const [screen, setScreen] = useState(SCREENS.MENU);
-  const [gameConfig, setGameConfig] = useState({ humanCount: 1, powerUps: true });
+  const [screen, setScreen] = useState(SCREENS.GAME_SELECT);
+  const [gameConfig, setGameConfig] = useState({ gameMode: 'hot_potato', humanCount: 1, powerUps: true });
   const [gameResult, setGameResult] = useState(null);
 
-  const handleStart = useCallback((humanCount, powerUps) => {
-    setGameConfig({ humanCount, powerUps });
+  const handleGameSelect = useCallback((gameMode) => {
+    setGameConfig(prev => ({ ...prev, gameMode }));
+    setScreen(SCREENS.LOBBY);
+  }, []);
+
+  const handleStart = useCallback((gameMode, humanCount, powerUps) => {
+    setGameConfig({ gameMode, humanCount, powerUps });
     setScreen(SCREENS.GAME);
   }, []);
 
@@ -29,18 +36,26 @@ export default function App() {
   }, []);
 
   const handleMenu = useCallback(() => {
-    setScreen(SCREENS.MENU);
+    setScreen(SCREENS.GAME_SELECT);
     setGameResult(null);
   }, []);
 
   return (
     <div style={styles.root}>
-      {screen === SCREENS.MENU && (
-        <MenuScreen onStart={handleStart} />
+      {screen === SCREENS.GAME_SELECT && (
+        <GameSelectScreen onSelect={handleGameSelect} />
+      )}
+      {screen === SCREENS.LOBBY && (
+        <MenuScreen
+          gameMode={gameConfig.gameMode}
+          onStart={handleStart}
+          onBack={() => setScreen(SCREENS.GAME_SELECT)}
+        />
       )}
       {screen === SCREENS.GAME && (
         <GameScreen
           key={Date.now()}
+          gameMode={gameConfig.gameMode}
           humanCount={gameConfig.humanCount}
           powerUps={gameConfig.powerUps}
           onGameOver={handleGameOver}

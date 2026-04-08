@@ -1,8 +1,9 @@
 import React, { useRef, useEffect, useCallback } from 'react';
-import Engine from '../game/Engine.js';
+import HotPotatoEngine from '../game/HotPotatoEngine.js';
+import TargetShootEngine from '../game/TargetShootEngine.js';
 import { initAudio } from '../utils/sounds.js';
 
-export default function GameScreen({ humanCount, powerUps, onGameOver }) {
+export default function GameScreen({ gameMode, humanCount, powerUps, onGameOver }) {
   const canvasRef = useRef(null);
   const engineRef = useRef(null);
   const containerRef = useRef(null);
@@ -36,7 +37,13 @@ export default function GameScreen({ humanCount, powerUps, onGameOver }) {
     const canvas = canvasRef.current;
     if (!canvas) return;
 
-    const engine = new Engine(canvas, humanCount, onGameOver, powerUps);
+    let engine;
+    if (gameMode === 'target_shoot') {
+      engine = new TargetShootEngine(canvas, humanCount, onGameOver, powerUps);
+    } else {
+      engine = new HotPotatoEngine(canvas, humanCount, onGameOver, powerUps);
+    }
+    
     engineRef.current = engine;
     engine.start();
 
@@ -49,7 +56,7 @@ export default function GameScreen({ humanCount, powerUps, onGameOver }) {
       engine.stop();
       window.removeEventListener('resize', handleResize);
     };
-  }, [humanCount, powerUps, onGameOver, resizeCanvas]);
+  }, [gameMode, humanCount, powerUps, onGameOver, resizeCanvas]);
 
   return (
     <div ref={containerRef} style={styles.container}>
