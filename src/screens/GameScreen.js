@@ -220,6 +220,22 @@ const getGameHTML = (gameMode, humanCount, powerUps) => {
             }
         });
 
+        function resolveCollisions() {
+            for(let i=0; i<players.length; i++) {
+                for(let j=i+1; j<players.length; j++) {
+                    const p1 = players[i], p2 = players[j];
+                    if(!p1.isAlive || !p2.isAlive) continue;
+                    const dx = p2.x - p1.x, dy = p2.y - p1.y, d = Math.sqrt(dx*dx+dy*dy)||1;
+                    const minD = 40;
+                    if(d < minD) {
+                        const a = Math.atan2(dy, dx); const f = (minD - d) * 0.15;
+                        p1.x -= Math.cos(a)*f; p1.y -= Math.sin(a)*f;
+                        p2.x += Math.cos(a)*f; p2.y += Math.sin(a)*f;
+                    }
+                }
+            }
+        }
+
         function loop() {
           const dt = 0.016;
           if(gameState === STATE.PLAYING) {
@@ -227,27 +243,37 @@ const getGameHTML = (gameMode, humanCount, powerUps) => {
               if(!p.isHuman && p.isAlive) {
                 const h = players[holderIdx];
                 if(p.index === holderIdx) {
-                  const t = players.find(op=>op.isAlive && op.index!==p.index);
+                  // AI Holder: Target someone else, or wait before turning back
+                  const t = players.find(op=>op.isAlive && op.index!==p.index && op.passImmunity <= 0);
                   if(t){ const dx=t.x-p.x, dy=t.y-p.y, m=Math.sqrt(dx*dx+dy*dy); p.vx=dx/m; p.vy=dy/m; }
+                  else { // Panic move if no target available
+                    if(Math.random()<0.02){ const a=Math.random()*6.28; p.vx=Math.cos(a); p.vy=Math.sin(a); }
+                  }
                 } else {
+                  // AI Non-Holder: Fear logic (run away)
                   const dx=p.x-h.x, dy=p.y-h.y, m=Math.sqrt(dx*dx+dy*dy);
-                  const fearRange = 220;
+                  const fearRange = 250;
                   if(m < fearRange){ p.vx=dx/m; p.vy=dy/m; } else if(Math.random()<0.01){ const a=Math.random()*6.28; p.vx=Math.cos(a); p.vy=Math.sin(a); }
                 }
               }
               p.update(dt);
             });
-            
+            resolveCollisions();
             const h = players[holderIdx];
             players.forEach(p => {
               if(p.index !== h.index && p.isAlive && p.passImmunity <= 0) {
                 const dx=p.x-h.x, dy=p.y-h.y, d=Math.sqrt(dx*dx+dy*dy);
-                if(d < 75) {
+                if(d < 65) {
                   const giver = h; const receiver = p;
                   giver.isHolding=false; receiver.isHolding=true; 
-                  // AI BALANCE: Higher immunity (1.8s) so it doesn't pass back immediately
-                  giver.passImmunity = 1.8; 
+                  giver.passImmunity = 2.0; // EVEN LONGER WAIT
                   holderIdx = receiver.index;
+                  
+                  // PHYSICAL IMPULSE: Push them apart instantly
+                  const a = Math.atan2(dy, dx);
+                  giver.x -= Math.cos(a) * 15; giver.y -= Math.sin(a) * 15;
+                  receiver.x += Math.cos(a) * 15; receiver.y += Math.sin(a) * 15;
+
                   renderer.shake=15; for(let i=0;i<12;i++){ const a=Math.random()*6.28; const s=3+Math.random()*3; renderer.particles.push({x:receiver.x,y:receiver.y,vx:Math.cos(a)*s,vy:Math.sin(a)*s,life:0.8,color:receiver.color}); }
                 }
               }
@@ -266,7 +292,7 @@ const getGameHTML = (gameMode, humanCount, powerUps) => {
               }, 2000);
             }
           } else {
-            players.forEach(p => p.update(dt));
+            players.forEach(p => p.update(dt)); resolveCollisions();
           }
           renderer.draw(players, potato, players[holderIdx], joysticks, round, gameState);
           requestAnimationFrame(loop);
