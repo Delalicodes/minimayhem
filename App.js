@@ -1,4 +1,6 @@
 import React, { useState, useCallback } from 'react';
+import { View, StyleSheet, SafeAreaView, Platform } from 'react-native';
+import { StatusBar } from 'expo-status-bar';
 import GameSelectScreen from './src/screens/GameSelectScreen';
 import MenuScreen from './src/screens/MenuScreen';
 import GameScreen from './src/screens/GameScreen';
@@ -41,46 +43,46 @@ export default function App() {
   }, []);
 
   return (
-    <div style={styles.root}>
-      {screen === SCREENS.GAME_SELECT && (
-        <GameSelectScreen onSelect={handleGameSelect} />
-      )}
-      {screen === SCREENS.LOBBY && (
-        <MenuScreen
-          gameMode={gameConfig.gameMode}
-          onStart={handleStart}
-          onBack={() => setScreen(SCREENS.GAME_SELECT)}
-        />
-      )}
-      {screen === SCREENS.GAME && (
-        <GameScreen
-          key={Date.now()}
-          gameMode={gameConfig.gameMode}
-          humanCount={gameConfig.humanCount}
-          powerUps={gameConfig.powerUps}
-          onGameOver={handleGameOver}
-        />
-      )}
-      {screen === SCREENS.RESULT && gameResult && (
-        <ResultScreen
-          result={gameResult}
-          onPlayAgain={handlePlayAgain}
-          onMenu={handleMenu}
-        />
-      )}
-    </div>
+    <View style={styles.root}>
+      <StatusBar style="light" />
+      <SafeAreaView style={styles.safeArea}>
+          {screen === SCREENS.GAME_SELECT && (
+            <GameSelectScreen onSelect={handleGameSelect} />
+          )}
+          {screen === SCREENS.LOBBY && (
+            <MenuScreen
+              gameMode={gameConfig.gameMode}
+              onStart={handleStart}
+              onBack={() => setScreen(SCREENS.GAME_SELECT)}
+            />
+          )}
+          {screen === SCREENS.GAME && (
+            <GameScreen
+              key={gameConfig.gameMode}
+              gameMode={gameConfig.gameMode}
+              humanCount={gameConfig.humanCount}
+              powerUps={gameConfig.powerUps}
+              onGameOver={handleGameOver}
+            />
+          )}
+          {screen === SCREENS.RESULT && gameResult && (
+            <ResultScreen
+              result={gameResult}
+              onPlayAgain={handlePlayAgain}
+              onMenu={handleMenu}
+            />
+          )}
+      </SafeAreaView>
+    </View>
   );
 }
 
-const styles = {
+const styles = StyleSheet.create({
   root: {
-    width: '100vw',
-    height: '100vh',
-    overflow: 'hidden',
+    flex: 1,
     backgroundColor: '#0F0F23',
-    margin: 0,
-    padding: 0,
-    display: 'flex',
-    fontFamily: "'Inter', 'Segoe UI', system-ui, sans-serif",
   },
-};
+  safeArea: {
+    flex: 1,
+  },
+});

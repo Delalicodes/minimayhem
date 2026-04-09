@@ -1,326 +1,257 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, Dimensions, Platform, SafeAreaView } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import { PLAYER_COLORS, PLAYER_NAMES, FONT_FAMILY } from '../game/constants.js';
+
+const { height: SCREEN_HEIGHT } = Dimensions.get('window');
+
+const GAME_INFO = {
+  hot_potato: { icon: '🔥', title: 'HOT POTATO', color: '#FF6B35' },
+  target_shoot: { icon: '🎯', title: 'TARGET SHOOT', color: '#00BFFF' }
+};
 
 export default function MenuScreen({ gameMode, onStart, onBack }) {
   const [humanCount, setHumanCount] = useState(1);
   const [powerUps, setPowerUps] = useState(true);
-  const canvasRef = useRef(null);
-  const animRef = useRef(null);
 
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext('2d');
-    let frame = 0;
-
-    const resizeCanvas = () => {
-      canvas.width = window.innerWidth;
-      canvas.height = window.innerHeight;
-    };
-    resizeCanvas();
-    window.addEventListener('resize', resizeCanvas);
-
-    const draw = () => {
-      frame++;
-      const w = canvas.width;
-      const h = canvas.height;
-
-      // Background
-      ctx.fillStyle = '#0F0F23';
-      ctx.fillRect(0, 0, w, h);
-
-      // Animated gradient
-      const grd = ctx.createRadialGradient(
-        w / 2 + Math.sin(frame * 0.01) * 50,
-        h / 3 + Math.cos(frame * 0.012) * 30,
-        20, w / 2, h / 2, w * 0.7
-      );
-      grd.addColorStop(0, 'rgba(255, 100, 0, 0.08)');
-      grd.addColorStop(0.5, 'rgba(255, 50, 0, 0.03)');
-      grd.addColorStop(1, 'rgba(0, 0, 0, 0)');
-      ctx.fillStyle = grd;
-      ctx.fillRect(0, 0, w, h);
-
-      // Floating particles
-      for (let i = 0; i < 15; i++) {
-        const px = (Math.sin(frame * 0.005 + i * 2.1) * 0.5 + 0.5) * w;
-        const py = (Math.cos(frame * 0.007 + i * 1.7) * 0.5 + 0.5) * h;
-        const size = 1.5 + Math.sin(frame * 0.02 + i) * 1;
-        ctx.beginPath();
-        ctx.arc(px, py, size, 0, Math.PI * 2);
-        ctx.fillStyle = `rgba(255, 150, 50, ${0.1 + Math.sin(frame * 0.03 + i) * 0.08})`;
-        ctx.fill();
-      }
-
-      animRef.current = requestAnimationFrame(draw);
-    };
-
-    draw();
-    return () => {
-      window.removeEventListener('resize', resizeCanvas);
-      if (animRef.current) cancelAnimationFrame(animRef.current);
-    };
-  }, []);
-
-  const GAME_INFO = {
-    hot_potato: { icon: '🔥', title: 'HOT POTATO', tagline: 'Pass it fast or get blasted!', color: '#FF6B35' },
-    target_shoot: { icon: '🎯', title: 'TARGET SHOOT', tagline: 'Shoot targets, stun opponents!', color: '#00BFFF' }
-  };
   const info = GAME_INFO[gameMode] || GAME_INFO.hot_potato;
 
   return (
-    <div style={styles.container}>
-      <canvas ref={canvasRef} style={styles.bgCanvas} />
+    <View style={styles.container}>
+      <LinearGradient colors={['#0F0F23', '#1A1A3A']} style={StyleSheet.absoluteFill} />
+      
+      <SafeAreaView style={styles.safeArea}>
+        {/* Top Header */}
+        <View style={styles.header}>
+          <TouchableOpacity style={styles.backBtn} onPress={onBack}>
+            <Text style={styles.backBtnText}>← BACK</Text>
+          </TouchableOpacity>
+          <Text style={styles.logoLabel}>MINI MAYHEM</Text>
+        </View>
 
-      <div style={styles.content}>
-        {/* Back button */}
-        <button onClick={onBack} style={styles.backBtn}>← Games</button>
+        {/* Title View - Very Compact */}
+        <View style={styles.heroArea}>
+            <Text style={[styles.title, { color: info.color }]}>
+                {info.icon} {info.title}
+            </Text>
+        </View>
 
-        {/* Title */}
-        <div style={styles.titleBlock}>
-          <div style={styles.subtitle}>MINI MAYHEM</div>
-          <div style={{ ...styles.title, color: info.color }}>{info.icon} {info.title} {info.icon}</div>
-          <div style={styles.tagline}>{info.tagline}</div>
-        </div>
+        {/* Selection Area - Flexible */}
+        <View style={styles.configArea}>
+            <View style={styles.section}>
+                <Text style={styles.sectionLabel}>HUMAN PLAYERS</Text>
+                <View style={styles.countControls}>
+                    {[1, 2, 3, 4].map(count => (
+                    <TouchableOpacity
+                        key={count}
+                        onPress={() => setHumanCount(count)}
+                        style={[
+                        styles.countBtn,
+                        humanCount === count && { borderColor: '#fff', backgroundColor: 'rgba(255,255,255,0.1)' }
+                        ]}
+                    >
+                        <Text style={[
+                        styles.countBtnText,
+                        humanCount === count && { color: '#fff' }
+                        ]}>
+                        {count}
+                        </Text>
+                    </TouchableOpacity>
+                    ))}
+                </View>
+                <View style={styles.playerPreview}>
+                    {Array.from({ length: 4 }).map((_, i) => (
+                    <View 
+                        key={i} 
+                        style={[
+                        styles.playerIndicator,
+                        { backgroundColor: PLAYER_COLORS[i], opacity: i < humanCount ? 1 : 0.2 }
+                        ]} 
+                    />
+                    ))}
+                </View>
+            </View>
 
-        {/* Player Selection */}
-        <div style={styles.section}>
-          <div style={styles.sectionLabel}>HUMAN PLAYERS</div>
-          <div style={styles.playerGrid}>
-            {[1, 2, 3, 4].map(n => (
-              <button
-                key={n}
-                onClick={() => setHumanCount(n)}
-                style={{
-                  ...styles.playerBtn,
-                  borderColor: humanCount >= n ? PLAYER_COLORS[n - 1] : 'rgba(255,255,255,0.1)',
-                  backgroundColor: humanCount >= n ? PLAYER_COLORS[n - 1] + '20' : 'rgba(255,255,255,0.03)',
-                  transform: humanCount >= n ? 'scale(1.05)' : 'scale(1)',
-                }}
-              >
-                <div style={{ ...styles.stickmanIcon, color: PLAYER_COLORS[n - 1] }}>🏃</div>
-                <div style={{ ...styles.playerLabel, color: humanCount >= n ? '#fff' : 'rgba(255,255,255,0.3)' }}>
-                  {PLAYER_NAMES[n - 1]}
-                </div>
-                <div style={{ ...styles.playerType, color: humanCount >= n ? PLAYER_COLORS[n - 1] : 'rgba(255,255,255,0.2)' }}>
-                  {humanCount >= n ? 'HUMAN' : 'AI'}
-                </div>
-              </button>
-            ))}
-          </div>
-        </div>
+            <View style={styles.section}>
+                <Text style={styles.sectionLabel}>GAME MODIFIERS</Text>
+                <TouchableOpacity 
+                    style={styles.toggleRow}
+                    onPress={() => setPowerUps(!powerUps)}
+                >
+                    <Text style={styles.toggleLabel}>POWER-UPS</Text>
+                    <View style={[styles.toggle, powerUps ? styles.toggleOn : styles.toggleOff]}>
+                        <View style={[styles.toggleKnob, powerUps ? { alignSelf: 'flex-end' } : { alignSelf: 'flex-start' }]} />
+                    </View>
+                </TouchableOpacity>
+            </View>
+        </View>
 
-        {/* Power-ups Toggle */}
-        <div style={styles.section}>
-          <button
-            onClick={() => setPowerUps(!powerUps)}
-            style={{
-              ...styles.toggleBtn,
-              borderColor: powerUps ? '#FFD700' : 'rgba(255,255,255,0.1)',
-              backgroundColor: powerUps ? 'rgba(255, 215, 0, 0.1)' : 'rgba(255,255,255,0.03)',
-            }}
-          >
-            <span style={{ fontSize: 20 }}>{powerUps ? '⚡' : '○'}</span>
-            <span style={{ color: powerUps ? '#FFD700' : 'rgba(255,255,255,0.3)' }}>
-              Power-ups {powerUps ? 'ON' : 'OFF'}
-            </span>
-          </button>
-        </div>
-
-        {/* Start Button */}
-        <button
-          onClick={() => onStart(gameMode, humanCount, powerUps)}
-          style={styles.startBtn}
-        >
-          <span style={styles.startText}>START GAME</span>
-          <span style={styles.startArrow}>▶</span>
-        </button>
-
-        {/* Instructions */}
-        <div style={styles.instructions}>
-          <div style={styles.instructionItem}>📱 Touch & drag joystick to move</div>
-          {gameMode === 'hot_potato' ? (
-            <>
-              <div style={styles.instructionItem}>💥 Bump into others to pass the potato</div>
-              <div style={styles.instructionItem}>⏱ Don't hold it when it explodes!</div>
-            </>
-          ) : (
-            <>
-              <div style={styles.instructionItem}>🏹 Stop moving to shoot automatically!</div>
-              <div style={styles.instructionItem}>⏱ Hit moving targets for triple points!</div>
-            </>
-          )}
-        </div>
-      </div>
-    </div>
+        {/* Bottom Pin Button */}
+        <View style={styles.footer}>
+            <TouchableOpacity 
+                onPress={() => onStart(gameMode, humanCount, powerUps)}
+                style={styles.startBtnWrapper}
+                activeOpacity={0.8}
+            >
+                <LinearGradient
+                    colors={['#FF4757', '#FF6B81']}
+                    style={styles.startBtn}
+                >
+                    <Text style={styles.startBtnText}>START BATTLE</Text>
+                </LinearGradient>
+            </TouchableOpacity>
+        </View>
+      </SafeAreaView>
+    </View>
   );
 }
 
-const styles = {
+const styles = StyleSheet.create({
   container: {
-    position: 'relative',
-    width: '100%',
-    height: '100%',
-    overflow: 'hidden',
-    display: 'flex',
-    flexDirection: 'column',
+    flex: 1,
+    backgroundColor: '#0F0F23',
+  },
+  safeArea: {
+    flex: 1,
+    paddingHorizontal: 20,
+    justifyContent: 'space-between', // This keeps the start button at the bottom
+  },
+  header: {
+    height: 50,
+    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-  },
-  bgCanvas: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    width: '100%',
-    height: '100%',
-    zIndex: 0,
-  },
-  content: {
-    position: 'relative',
-    zIndex: 1,
-    display: 'flex',
-    flexDirection: 'column',
-    alignItems: 'center',
-    gap: 20,
-    padding: '20px',
-    maxWidth: 380,
-    width: '100%',
-  },
-  titleBlock: {
-    textAlign: 'center',
-    marginBottom: 8,
-  },
-  subtitle: {
-    fontFamily: FONT_FAMILY,
-    fontSize: 13,
-    letterSpacing: 6,
-    color: 'rgba(255,255,255,0.4)',
-    marginBottom: 4,
+    justifyContent: 'space-between',
   },
   backBtn: {
-    alignSelf: 'flex-start',
-    background: 'none',
-    border: '1px solid rgba(255,255,255,0.15)',
+    padding: 8,
     borderRadius: 8,
+    backgroundColor: 'rgba(255,255,255,0.05)',
+  },
+  backBtnText: {
     color: 'rgba(255,255,255,0.5)',
-    fontFamily: FONT_FAMILY,
-    fontSize: 12,
-    padding: '6px 14px',
-    cursor: 'pointer',
-    transition: 'all 0.2s',
-    outline: 'none',
-  },
-  title: {
-    fontFamily: FONT_FAMILY,
-    fontSize: 32,
+    fontSize: 10,
     fontWeight: 'bold',
-    color: '#FF6B35',
-    textShadow: '0 0 30px rgba(255, 100, 0, 0.5), 0 0 60px rgba(255, 50, 0, 0.2)',
-    letterSpacing: 2,
-  },
-  tagline: {
-    fontFamily: FONT_FAMILY,
-    fontSize: 13,
-    color: 'rgba(255,255,255,0.4)',
-    marginTop: 6,
-  },
-  section: {
-    width: '100%',
-  },
-  sectionLabel: {
-    fontFamily: FONT_FAMILY,
-    fontSize: 11,
-    letterSpacing: 3,
-    color: 'rgba(255,255,255,0.3)',
-    marginBottom: 10,
-    textAlign: 'center',
-  },
-  playerGrid: {
-    display: 'flex',
-    gap: 8,
-    justifyContent: 'center',
-  },
-  playerBtn: {
-    display: 'flex',
-    flexDirection: 'column',
-    alignItems: 'center',
-    gap: 4,
-    padding: '12px 10px',
-    borderRadius: 12,
-    border: '2px solid',
-    cursor: 'pointer',
-    transition: 'all 0.2s ease',
-    width: 76,
-    background: 'none',
-    outline: 'none',
-  },
-  stickmanIcon: {
-    fontSize: 22,
-  },
-  playerLabel: {
-    fontFamily: FONT_FAMILY,
-    fontSize: 11,
-    fontWeight: 'bold',
-  },
-  playerType: {
-    fontFamily: FONT_FAMILY,
-    fontSize: 9,
     letterSpacing: 1,
   },
-  toggleBtn: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: 10,
-    padding: '10px 20px',
-    borderRadius: 10,
-    border: '2px solid',
-    cursor: 'pointer',
-    fontFamily: FONT_FAMILY,
-    fontSize: 14,
+  logoLabel: {
+    fontSize: 10,
+    color: 'rgba(255,255,255,0.2)',
+    letterSpacing: 3,
     fontWeight: 'bold',
-    width: '100%',
+  },
+  heroArea: {
+    alignItems: 'center',
+    marginVertical: 10,
+  },
+  title: {
+    fontSize: 22,
+    fontWeight: '900',
+    letterSpacing: 1,
+  },
+  configArea: {
+    flex: 1,
     justifyContent: 'center',
-    background: 'none',
-    outline: 'none',
-    transition: 'all 0.2s ease',
+    gap: 20,
+    maxHeight: 300,
+  },
+  section: {
+    gap: 12,
+  },
+  sectionLabel: {
+    fontSize: 10,
+    letterSpacing: 2,
+    color: 'rgba(255,255,255,0.3)',
+    fontWeight: 'bold',
+    textAlign: 'center',
+    marginBottom: 4,
+  },
+  countControls: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: 10,
+  },
+  countBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2,
+    borderColor: 'transparent',
+  },
+  countBtnText: {
+    color: 'rgba(255,255,255,0.4)',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  playerPreview: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: 6,
+    marginTop: 10,
+  },
+  playerIndicator: {
+    width: 30,
+    height: 8,
+    borderRadius: 4,
+  },
+  toggleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: 'rgba(255,255,255,0.04)',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: 12,
+    maxWidth: 280,
+    alignSelf: 'center',
+    width: '100%',
+  },
+  toggleLabel: {
+    color: '#fff',
+    fontSize: 12,
+    fontWeight: 'bold',
+    letterSpacing: 1,
+  },
+  toggle: {
+    width: 44,
+    height: 24,
+    borderRadius: 12,
+    padding: 3,
+    justifyContent: 'center',
+  },
+  toggleOn: { backgroundColor: '#2ED573' },
+  toggleOff: { backgroundColor: 'rgba(255,255,255,0.1)' },
+  toggleKnob: {
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    backgroundColor: '#fff',
+  },
+  footer: {
+    paddingBottom: 20,
+    alignItems: 'center',
+  },
+  startBtnWrapper: {
+    width: '100%',
+    maxWidth: 280,
   },
   startBtn: {
-    display: 'flex',
+    paddingVertical: 16,
+    borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 10,
-    width: '100%',
-    padding: '16px 24px',
-    borderRadius: 14,
-    border: 'none',
-    background: 'linear-gradient(135deg, #FF6B35, #FF4500)',
-    cursor: 'pointer',
-    transition: 'all 0.2s ease',
-    boxShadow: '0 4px 25px rgba(255, 69, 0, 0.4), 0 0 60px rgba(255, 69, 0, 0.15)',
-    outline: 'none',
-    marginTop: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 5,
+    elevation: 8,
   },
-  startText: {
-    fontFamily: FONT_FAMILY,
-    fontSize: 18,
-    fontWeight: 'bold',
+  startBtnText: {
     color: '#fff',
-    letterSpacing: 3,
-  },
-  startArrow: {
     fontSize: 16,
-    color: '#fff',
+    fontWeight: 'bold',
+    letterSpacing: 2,
   },
-  instructions: {
-    display: 'flex',
-    flexDirection: 'column',
-    gap: 6,
-    marginTop: 8,
-  },
-  instructionItem: {
-    fontFamily: FONT_FAMILY,
-    fontSize: 12,
-    color: 'rgba(255,255,255,0.35)',
-    textAlign: 'center',
-  },
-};
+});

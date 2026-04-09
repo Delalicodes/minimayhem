@@ -1,3 +1,5 @@
+import { Platform } from 'react-native';
+
 export default class InputManager {
   constructor(canvas) {
     this.canvas = canvas;
@@ -29,42 +31,88 @@ export default class InputManager {
   bind() {
     if (this._bound) return;
     this._bound = true;
-    this.canvas.addEventListener('touchstart', this._onTouchStart, { passive: false });
-    this.canvas.addEventListener('touchmove', this._onTouchMove, { passive: false });
-    this.canvas.addEventListener('touchend', this._onTouchEnd);
-    this.canvas.addEventListener('touchcancel', this._onTouchEnd);
+    if (Platform.OS === 'web') {
+        this.canvas.addEventListener('touchstart', this._onTouchStart, { passive: false });
+        this.canvas.addEventListener('touchmove', this._onTouchMove, { passive: false });
+        this.canvas.addEventListener('touchend', this._onTouchEnd);
+        this.canvas.addEventListener('touchcancel', this._onTouchEnd);
 
-    this.canvas.addEventListener('mousedown', this._onMouseDown);
-    window.addEventListener('mousemove', this._onMouseMove);
-    window.addEventListener('mouseup', this._onMouseUp);
+        this.canvas.addEventListener('mousedown', this._onMouseDown);
+        window.addEventListener('mousemove', this._onMouseMove);
+        window.addEventListener('mouseup', this._onMouseUp);
 
-    window.addEventListener('keydown', this._onKeyDown);
-    window.addEventListener('keyup', this._onKeyUp);
+        window.addEventListener('keydown', this._onKeyDown);
+        window.addEventListener('keyup', this._onKeyUp);
+    }
   }
 
   unbind() {
     this._bound = false;
-    this.canvas.removeEventListener('touchstart', this._onTouchStart);
-    this.canvas.removeEventListener('touchmove', this._onTouchMove);
-    this.canvas.removeEventListener('touchend', this._onTouchEnd);
-    this.canvas.removeEventListener('touchcancel', this._onTouchEnd);
+    if (Platform.OS === 'web') {
+        this.canvas.removeEventListener('touchstart', this._onTouchStart);
+        this.canvas.removeEventListener('touchmove', this._onTouchMove);
+        this.canvas.removeEventListener('touchend', this._onTouchEnd);
+        this.canvas.removeEventListener('touchcancel', this._onTouchEnd);
 
-    this.canvas.removeEventListener('mousedown', this._onMouseDown);
-    window.removeEventListener('mousemove', this._onMouseMove);
-    window.removeEventListener('mouseup', this._onMouseUp);
+        this.canvas.removeEventListener('mousedown', this._onMouseDown);
+        window.removeEventListener('mousemove', this._onMouseMove);
+        window.removeEventListener('mouseup', this._onMouseUp);
 
-    window.removeEventListener('keydown', this._onKeyDown);
-    window.removeEventListener('keyup', this._onKeyUp);
+        window.removeEventListener('keydown', this._onKeyDown);
+        window.removeEventListener('keyup', this._onKeyUp);
+    }
+  }
+
+  handleTouchStart(touches) {
+    if (!touches) return;
+    for (const t of touches) {
+      const pos = this._getCanvasPos(t.clientX, t.clientY);
+      if (this.touchId === null) {
+        this.touchId = t.identifier;
+        this.joystickCenter = { ...pos };
+        this.joystickPos = { ...pos };
+        this.joystickActive = true;
+      } else {
+        this.shootRequested = true;
+      }
+    }
+  }
+
+  handleTouchMove(touches) {
+    if (!touches) return;
+    for (const t of touches) {
+      if (t.identifier === this.touchId) {
+        const pos = this._getCanvasPos(t.clientX, t.clientY);
+        this.joystickPos = pos;
+        this._updateDirection();
+      }
+    }
+  }
+
+  handleTouchEnd(touches) {
+    if (!touches) return;
+    for (const t of touches) {
+      if (t.identifier === this.touchId) {
+        this.touchId = null;
+        this.joystickActive = false;
+        this.direction = { x: 0, y: 0 };
+      }
+    }
   }
 
   _getCanvasPos(clientX, clientY) {
-    const rect = this.canvas.getBoundingClientRect();
-    const scaleX = this.canvas.width / rect.width;
-    const scaleY = this.canvas.height / rect.height;
-    return {
-      x: (clientX - rect.left) * scaleX,
-      y: (clientY - rect.top) * scaleY,
-    };
+    if (Platform.OS === 'web' && this.canvas.getBoundingClientRect) {
+        const rect = this.canvas.getBoundingClientRect();
+        const scaleX = this.canvas.width / rect.width;
+        const scaleY = this.canvas.height / rect.height;
+        return {
+          x: (clientX - rect.left) * scaleX,
+          y: (clientY - rect.top) * scaleY,
+        };
+    } else {
+        // Native: canvas is typically full-screen as passed from GameScreen
+        return { x: clientX, y: clientY };
+    }
   }
 
   _onTouchStart(e) {

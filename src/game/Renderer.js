@@ -13,6 +13,25 @@ export default class Renderer {
     this.particles = [];
   }
 
+  _roundRect(ctx, x, y, width, height, radius) {
+    if (typeof radius === 'number') {
+      radius = { tl: radius, tr: radius, br: radius, bl: radius };
+    } else {
+      radius = { ...{ tl: 0, tr: 0, br: 0, bl: 0 }, ...radius };
+    }
+    ctx.beginPath();
+    ctx.moveTo(x + radius.tl, y);
+    ctx.lineTo(x + width - radius.tr, y);
+    ctx.quadraticCurveTo(x + width, y, x + width, y + radius.tr);
+    ctx.lineTo(x + width, y + height - radius.br);
+    ctx.quadraticCurveTo(x + width, y + height, x + width - radius.br, y + height);
+    ctx.lineTo(x + radius.bl, y + height);
+    ctx.quadraticCurveTo(x, y + height, x, y + height - radius.bl);
+    ctx.lineTo(x, y + radius.tl);
+    ctx.quadraticCurveTo(x, y, x + radius.tl, y);
+    ctx.closePath();
+  }
+
   get width() { return this.canvas.width; }
   get height() { return this.canvas.height; }
 
@@ -21,11 +40,8 @@ export default class Renderer {
     ctx.save();
     ctx.translate(this.shakeX, this.shakeY);
 
-    // Background — vibrant colorful gradient (Stickman Party style)
-    const bgGrd = ctx.createLinearGradient(0, 0, this.width, this.height);
-    bgGrd.addColorStop(0, '#55B8FF');
-    bgGrd.addColorStop(1, '#8D52FF');
-    ctx.fillStyle = bgGrd;
+    // Background — Solid vibrant blue (Stickman Party style)
+    ctx.fillStyle = '#55B8FF';
     ctx.fillRect(0, 0, this.width, this.height);
 
     // Arena floor
@@ -35,8 +51,7 @@ export default class Renderer {
     const ah = this.height - ARENA_PADDING * 2;
 
     ctx.save();
-    ctx.beginPath();
-    ctx.roundRect(ax, ay, aw, ah, 20);
+    this._roundRect(ctx, ax, ay, aw, ah, 20);
     ctx.clip();
 
     // Base floor color
@@ -54,11 +69,8 @@ export default class Renderer {
       }
     }
 
-    // Inner shadow
-    const innerShadowGrd = ctx.createLinearGradient(ax, ay, ax, ay + 30);
-    innerShadowGrd.addColorStop(0, 'rgba(0,0,0,0.1)');
-    innerShadowGrd.addColorStop(1, 'rgba(0,0,0,0)');
-    ctx.fillStyle = innerShadowGrd;
+    // Inner shadow — simplified to semi-transparent overlay
+    ctx.fillStyle = 'rgba(0,0,0,0.05)';
     ctx.fillRect(ax, ay, aw, 30);
 
     ctx.restore();
@@ -67,8 +79,7 @@ export default class Renderer {
     ctx.strokeStyle = '#FFFFFF';
     ctx.lineWidth = 10;
     ctx.lineJoin = 'round';
-    ctx.beginPath();
-    ctx.roundRect(ax, ay, aw, ah, 20);
+    this._roundRect(ctx, ax, ay, aw, ah, 20);
     ctx.stroke();
 
     // Corner bumpers
@@ -115,14 +126,10 @@ export default class Renderer {
     ctx.fillStyle = 'rgba(0, 0, 0, 0.35)';
     ctx.fill();
 
-    // Holding aura
+    // Holding aura — simplified to a solid pulse
     if (isHolding) {
       const dangerPulse = Math.sin(Date.now() * 0.008) * 0.15 + 0.35;
-      const auraGrd = ctx.createRadialGradient(0, 0, 15, 0, 0, 45);
-      auraGrd.addColorStop(0, `rgba(255, 69, 0, ${dangerPulse})`);
-      auraGrd.addColorStop(0.6, `rgba(255, 69, 0, ${dangerPulse * 0.3})`);
-      auraGrd.addColorStop(1, 'rgba(255, 69, 0, 0)');
-      ctx.fillStyle = auraGrd;
+      ctx.fillStyle = `rgba(255, 69, 0, ${dangerPulse * 0.5})`;
       ctx.beginPath();
       ctx.arc(0, 0, 45, 0, Math.PI * 2);
       ctx.fill();
@@ -273,11 +280,9 @@ export default class Renderer {
     const urgency = potato.urgency;
     const pulse = Math.sin(Date.now() * 0.001 * potato.pulseSpeed) * 0.3 + 0.7;
     const size = 12 + urgency * 3;
-    // Glow
-    const grd = ctx.createRadialGradient(0, 0, 2, 0, 0, 25 + urgency * 20);
-    grd.addColorStop(0, `rgba(255, 100, 0, ${potato.glowIntensity * pulse})`);
-    grd.addColorStop(1, 'rgba(255, 50, 0, 0)');
-    ctx.fillStyle = grd;
+    // Glow — simplified
+    const alpha = (potato.glowIntensity * pulse * 0.5).toFixed(2);
+    ctx.fillStyle = `rgba(255, 100, 0, ${alpha})`;
     ctx.beginPath(); ctx.arc(0, 0, 25 + urgency * 20, 0, Math.PI * 2); ctx.fill();
     // Body
     ctx.fillStyle = '#CD853F'; ctx.beginPath(); ctx.arc(0, 0, size, 0, Math.PI * 2); ctx.fill();
@@ -310,7 +315,7 @@ export default class Renderer {
     ctx.translate(this.shakeX, this.shakeY);
     ctx.fillStyle = '#8B4513'; ctx.strokeStyle = '#4E342E'; ctx.lineWidth = 2;
     for (const o of obs) {
-      ctx.beginPath(); ctx.roundRect(o.x - o.w/2, o.y - o.h/2, o.w, o.h, 4); ctx.fill(); ctx.stroke();
+      this._roundRect(ctx, o.x - o.w/2, o.y - o.h/2, o.w, o.h, 4); ctx.fill(); ctx.stroke();
       ctx.beginPath(); ctx.moveTo(o.x - o.w/2, o.y); ctx.lineTo(o.x + o.w/2, o.y); ctx.stroke();
     }
     ctx.restore();
@@ -329,13 +334,9 @@ export default class Renderer {
       ctx.fill();
 
       if (isGolden) {
-        // Glowing gold aura
-        const pulse = Math.sin(Date.now() * 0.01) * 5;
-        const grd = ctx.createRadialGradient(x, y, 2, x, y, radius + 10 + pulse);
-        grd.addColorStop(0, 'rgba(255, 215, 0, 0.4)');
-        grd.addColorStop(1, 'rgba(255, 215, 0, 0)');
-        ctx.fillStyle = grd;
-        ctx.beginPath(); ctx.arc(x, y, radius + 10 + pulse, 0, Math.PI * 2); ctx.fill();
+        // Glowing gold aura — simplified
+        ctx.fillStyle = 'rgba(255, 215, 0, 0.2)';
+        ctx.beginPath(); ctx.arc(x, y, radius + 10, 0, Math.PI * 2); ctx.fill();
 
         // Target body
         ctx.fillStyle = '#FFD700'; // Gold
@@ -402,10 +403,9 @@ export default class Renderer {
     const ctx = this.ctx;
     ctx.save(); ctx.translate(this.shakeX, this.shakeY);
     if (progress < 0.5) {
-      const alpha = 1 - progress * 2;
-      const grd = ctx.createRadialGradient(x, y, 0, x, y, 40 + progress * 250);
-      grd.addColorStop(0, `rgba(255, 255, 200, ${alpha})`); grd.addColorStop(1, 'rgba(255, 0, 0, 0)');
-      ctx.fillStyle = grd; ctx.beginPath(); ctx.arc(x, y, 40 + progress * 250, 0, Math.PI * 2); ctx.fill();
+      const alpha = (1 - progress * 2) * 0.5;
+      ctx.fillStyle = `rgba(255, 255, 200, ${alpha})`;
+      ctx.beginPath(); ctx.arc(x, y, 40 + progress * 250, 0, Math.PI * 2); ctx.fill();
     }
     for (let i = this.particles.length - 1; i >= 0; i--) {
       const p = this.particles[i]; p.x += p.vx; p.y += p.vy; p.vy += 0.1; p.life -= 0.02;
@@ -428,12 +428,16 @@ export default class Renderer {
 
   drawScoreBoard(scores, colors, names, active, title = 'TARGET SHOOT') {
     const ctx = this.ctx; ctx.save();
-    ctx.fillStyle = 'rgba(0,0,0,0.45)'; ctx.beginPath(); ctx.roundRect(ARENA_PADDING + 4, 8, 120, 26, 13); ctx.fill();
+    ctx.fillStyle = 'rgba(0,0,0,0.45)';
+    this._roundRect(ctx, ARENA_PADDING + 4, 8, 120, 26, 13);
+    ctx.fill();
     ctx.font = `bold 12px ${FONT_FAMILY}`; ctx.textAlign = 'center'; ctx.fillStyle = '#fff'; ctx.fillText(title, ARENA_PADDING + 64, 25);
     const startX = this.width - ARENA_PADDING - 10;
     for (let i = 0; i < scores.length; i++) {
         const sy = 16 + i * 24;
-        ctx.fillStyle = 'rgba(0,0,0,0.45)'; ctx.beginPath(); ctx.roundRect(startX - 90, sy - 8, 96, 20, 10); ctx.fill();
+        ctx.fillStyle = 'rgba(0,0,0,0.45)';
+        this._roundRect(ctx, startX - 90, sy - 8, 96, 20, 10);
+        ctx.fill();
         ctx.beginPath(); ctx.arc(startX - 76, sy + 2, 4, 0, Math.PI * 2); ctx.fillStyle = active[i] ? colors[i] : '#555'; ctx.fill();
         ctx.textAlign = 'right'; ctx.fillStyle = active[i] ? colors[i] : '#888'; ctx.fillText(`${names[i]}: ${scores[i]}`, startX - 6, sy + 6);
     }
@@ -453,7 +457,9 @@ export default class Renderer {
   drawMessage(text, sub) {
     const ctx = this.ctx; ctx.save();
     const bw = 400, bh = 80;
-    ctx.fillStyle = 'rgba(15, 15, 40, 0.85)'; ctx.beginPath(); ctx.roundRect(this.width/2 - bw/2, this.height/2 - bh/2, bw, bh, 16); ctx.fill();
+    ctx.fillStyle = 'rgba(15, 15, 40, 0.85)';
+    this._roundRect(ctx, this.width/2 - bw/2, this.height/2 - bh/2, bw, bh, 16);
+    ctx.fill();
     ctx.font = `bold 32px ${FONT_FAMILY}`; ctx.textAlign = 'center'; ctx.fillStyle = '#fff'; ctx.fillText(text, this.width/2, this.height/2 - 10);
     if (sub) { ctx.font = `15px ${FONT_FAMILY}`; ctx.fillStyle = 'rgba(255,255,255,0.5)'; ctx.fillText(sub, this.width/2, this.height/2 + 20); }
     ctx.restore();

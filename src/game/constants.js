@@ -1,3 +1,5 @@
+import { Platform } from 'react-native';
+
 // Player colors — vibrant, distinct
 export const PLAYER_COLORS = ['#FF4757', '#2ED573', '#1E90FF', '#FFA502'];
 export const PLAYER_NAMES = ['Red', 'Green', 'Blue', 'Orange'];
@@ -44,4 +46,6 @@ export const SHAKE_DURATION = 500;
 export const SHAKE_INTENSITY = 8;
 
 // Fonts
-export const FONT_FAMILY = "'Inter', 'Segoe UI', system-ui, sans-serif";
+export const FONT_FAMILY = Platform.OS === 'web' 
+  ? "'Inter', 'Segoe UI', system-ui, sans-serif" 
+  : 'System';

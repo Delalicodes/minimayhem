@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <style>
+        body, html { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background: #0F0F23; }
+        canvas { display: block; width: 100vw; height: 100vh; touch-action: none; background: #0F0F23; }
+    </style>
+</head>
+<body>
+    <canvas id="gameCanvas"></canvas>
+    <script>
+        const CONFIG = {
+          gameMode: "hot_potato",
+          humanCount: 1,
+          powerUps: true,
+          w: window.innerWidth,
+          h: window.innerHeight,
+          pad: 40
+        };
+        const COLORS = ['#FF4757', '#2ED573', '#1E90FF', '#FFA502'];
+        const NAMES = ['Red', 'Green', 'Blue', 'Orange'];
+
+        class Player {
+            constructor(i, x, y, isHuman) {
+                this.index = i; this.x = x; this.y = y; this.vx = 0; this.vy = 0;
+                this.color = COLORS[i]; this.name = NAMES[i]; this.isHuman = isHuman;
+                this.radius = 18; this.isAlive = true; this.angle = 0; this.animFrame = 0;
+                this.score = 0; this.isHolding = false;
+            }
+            update(dt) {
+                const s = 3.5; this.x += this.vx * s; this.y += this.vy * s;
+                this.x = Math.max(CONFIG.pad+18, Math.min(CONFIG.w-CONFIG.pad-18, this.x));
+                this.y = Math.max(CONFIG.pad+18, Math.min(CONFIG.h-CONFIG.pad-18, this.y));
+                if (Math.abs(this.vx)>0.1||Math.abs(this.vy)>0.1) {
+                  this.angle = Math.atan2(this.vy, this.vx); this.animFrame += 0.2;
+                }
+            }
+            setDirection(dx, dy) {
+                const mag = Math.sqrt(dx * dx + dy * dy);
+                if (mag > 0.1) { this.vx = dx / mag; this.vy = dy / mag; } else { this.vx = 0; this.vy = 0; }
+            }
+        }
+
+        class Renderer {
+            constructor(canvas) {
+                this.canvas = canvas; this.ctx = canvas.getContext('2d', { alpha: false });
+            }
+            _roundRect(ctx, x, y, w, h, r) {
+                ctx.beginPath(); ctx.moveTo(x+r, y); ctx.lineTo(x+w-r, y); ctx.quadraticCurveTo(x+w, y, x+w, y+r);
+                ctx.lineTo(x+w, y+h-r); ctx.quadraticCurveTo(x+w, y+h, x+w-r, y+h); ctx.lineTo(x+r, y+h);
+                ctx.quadraticCurveTo(x, y+h, x, y+h-r); ctx.lineTo(x, y+r); ctx.quadraticCurveTo(x, y, x+r, y); ctx.closePath();
+            }
+            clear() {
+                const ctx = this.ctx, w = CONFIG.w, h = CONFIG.h, pad = CONFIG.pad;
+                ctx.fillStyle = '#1A1A3A'; ctx.fillRect(0,0,w,h);
+                const aw = w - pad*2, ah = h - pad*2;
+                ctx.save(); this._roundRect(ctx, pad, pad, aw, ah, 20); ctx.clip();
+                ctx.fillStyle = '#ffffff'; ctx.fillRect(pad, pad, aw, ah);
+                ctx.fillStyle = '#f0f2f5';
+                for(let gx=pad; gx<pad+aw; gx+=60) for(let gy=pad; gy<pad+ah; gy+=60) 
+                  if((Math.floor((gx-pad)/60)+Math.floor((gy-pad)/60))%2===0) ctx.fillRect(gx,gy,60,60);
+                ctx.fillStyle = 'rgba(0,0,0,0.05)'; ctx.fillRect(pad, pad, aw, 30);
+                ctx.restore();
+                ctx.strokeStyle = '#FFFFFF'; ctx.lineWidth = 10; this._roundRect(ctx, pad, pad, aw, ah, 20); ctx.stroke();
+                this._drawBumper(pad, pad, '#FF3B30'); this._drawBumper(w-pad, pad, '#4CD964');
+                this._drawBumper(pad, h-pad, '#007AFF'); this._drawBumper(w-pad, h-pad, '#FFCC00');
+            }
+            _drawBumper(x, y, color) {
+                const ctx = this.ctx; ctx.fillStyle = color; ctx.beginPath(); ctx.arc(x,y,16,0,Math.PI*2); ctx.fill();
+                ctx.strokeStyle='white'; ctx.lineWidth=4; ctx.stroke();
+            }
+            drawPlayer(p) {
+                const ctx = this.ctx; ctx.save(); ctx.translate(p.x, p.y);
+                ctx.fillStyle = 'rgba(0,0,0,0.2)'; ctx.beginPath(); ctx.arc(2,6,20,0,Math.PI*2); ctx.fill();
+                ctx.rotate(p.angle);
+                const leg = Math.sin(p.animFrame)*8;
+                ctx.fillStyle = p.color;
+                ctx.beginPath(); ctx.arc(-6+leg, -13, 6, 0, Math.PI*2); ctx.fill(); 
+                ctx.beginPath(); ctx.arc(-6-leg, 13, 6, 0, Math.PI*2); ctx.fill();
+                ctx.beginPath(); ctx.arc(0,0,18,0,Math.PI*2); ctx.fill();
+                ctx.fillStyle = 'white'; ctx.beginPath(); ctx.arc(10,-6,5,0,Math.PI*2); ctx.arc(10,6,5,0,Math.PI*2); ctx.fill();
+                ctx.fillStyle = '#111'; ctx.beginPath(); ctx.arc(12,-5,2,0,Math.PI*2); ctx.arc(12,5,2,0,Math.PI*2); ctx.fill();
+                ctx.restore();
+                ctx.fillStyle = 'rgba(255,255,255,0.6)'; ctx.font = 'bold 10px sans-serif'; ctx.textAlign = 'center';
+                ctx.fillText(p.name, p.x, p.y + 35);
+            }
+        }
+
+        const canvas = document.getElementById('gameCanvas');
+        const renderer = new Renderer(canvas);
+        const players = [];
+        const startOff = CONFIG.pad + 60;
+        const pos = [{x:startOff, y:startOff}, {x:CONFIG.w-startOff, y:startOff}, {x:startOff, y:CONFIG.h-startOff}, {x:CONFIG.w-startOff, y:CONFIG.h-startOff}];
+        for(let i=0; i<4; i++) players.push(new Player(i, pos[i].x, pos[i].y, i < CONFIG.humanCount));
+
+        function loop() {
+            renderer.clear();
+            players.forEach(p => { 
+                if (!p.isHuman && Math.random()<0.01) { const a=Math.random()*6.28; p.setDirection(Math.cos(a), Math.sin(a)); }
+                p.update(0.016); renderer.drawPlayer(p); 
+            });
+            requestAnimationFrame(loop);
+        }
+        loop();
+    </script>
+</body>
+</html>
