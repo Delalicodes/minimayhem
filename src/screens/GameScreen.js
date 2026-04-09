@@ -24,7 +24,7 @@ const getGameHTML = (gameMode, humanCount, powerUps) => {
           humanCount: ${humanCount},
           w: window.innerWidth,
           h: window.innerHeight,
-          pad: 20, // Increased for a clean border
+          pad: 20,
           dpr: window.devicePixelRatio || 1
         };
 
@@ -37,9 +37,10 @@ const getGameHTML = (gameMode, humanCount, powerUps) => {
             canvas.width = CONFIG.w * CONFIG.dpr;
             canvas.height = CONFIG.h * CONFIG.dpr;
             ctx.scale(CONFIG.dpr, CONFIG.dpr);
+            // Recalculate joystick base positions
+            if(window.joysticks) initJoysticks();
         }
         window.addEventListener('resize', resizeCanvas);
-        resizeCanvas();
 
         const COLORS = ['#FF4757', '#2ED573', '#1E90FF', '#FFA502'];
         const NAMES = ['RED', 'GREEN', 'BLUE', 'ORANGE'];
@@ -57,8 +58,6 @@ const getGameHTML = (gameMode, humanCount, powerUps) => {
                   const s = 3.6; 
                   this.x += this.vx * s; this.y += this.vy * s;
                 }
-                
-                // ROBUST BOUNDARY CLAMPING (KEEP AWAY FROM BORDER)
                 const margin = CONFIG.pad + this.radius + 6;
                 if (this.x < margin) this.x = margin;
                 if (this.x > CONFIG.w - margin) this.x = CONFIG.w - margin;
@@ -86,19 +85,13 @@ const getGameHTML = (gameMode, humanCount, powerUps) => {
                 this.bgGrd = ctx.createLinearGradient(0, 0, 0, CONFIG.h);
                 this.bgGrd.addColorStop(0, '#121232'); this.bgGrd.addColorStop(1, '#1A1A4A');
             }
-            draw(players, potato, holder, joystick, round, gameState) {
+            draw(players, potato, holder, joysticks, round, gameState) {
                 ctx.save();
                 if(this.shake > 0) { ctx.translate((Math.random()-0.5)*this.shake, (Math.random()-0.5)*this.shake); this.shake *= 0.85; }
-                
-                // BACKGROUND IS ALWAYS VISIBLE
                 ctx.fillStyle = this.bgGrd; ctx.fillRect(0,0,CONFIG.w,CONFIG.h);
                 
-                // --- HARD CLIPPING CONTENT ---
                 const aw = CONFIG.w-CONFIG.pad*2, ah = CONFIG.h-CONFIG.pad*2;
-                ctx.save();
-                this._roundRect(ctx, CONFIG.pad, CONFIG.pad, aw, ah, 24);
-                ctx.clip(); // <--- ANYTHING INSIDE THIS CANNOT LEAVE THE ARENA
-                
+                ctx.save(); this._roundRect(ctx, CONFIG.pad, CONFIG.pad, aw, ah, 24); ctx.clip();
                 ctx.fillStyle='#FFF'; ctx.fillRect(CONFIG.pad, CONFIG.pad, aw, ah);
                 ctx.fillStyle='#f0f2f5';
                 for(let x=CONFIG.pad;x<CONFIG.w-CONFIG.pad;x+=60) for(let y=CONFIG.pad;y<CONFIG.h-CONFIG.pad;y+=60) if((Math.floor((x-CONFIG.pad)/60)+Math.floor((y-CONFIG.pad)/60))%2===0) ctx.fillRect(x,y,60,60);
@@ -114,7 +107,7 @@ const getGameHTML = (gameMode, humanCount, powerUps) => {
                     ctx.rotate(p.angle); ctx.scale(p.stretch, p.squash);
                     ctx.fillStyle = p.isAlive ? p.color : '#999';
                     const leg = Math.sin(p.animFrame)*9;
-                    ctx.beginPath();ctx.arc(-7 + leg,-14,7,0,Math.PI*2);ctx.fill(); ctx.beginPath();ctx.arc(-7 - leg,14,7,0,Math.PI*2);ctx.fill();
+                    ctx.beginPath();ctx.arc(-7+leg,-14,7,0,Math.PI*2);ctx.fill(); ctx.beginPath();ctx.arc(-7-leg,14,7,0,Math.PI*2);ctx.fill();
                     ctx.beginPath();ctx.arc(0,0,20,0,Math.PI*2);ctx.fill();
                     ctx.fillStyle='white';ctx.beginPath();ctx.arc(12,-7,5.5,0,Math.PI*2);ctx.arc(12,7,5.5,0,Math.PI*2);ctx.fill();
                     if (p.isAlive) { ctx.fillStyle='#111';ctx.beginPath();ctx.arc(14,-6,2.5,0,Math.PI*2);ctx.arc(14,6,2.5,0,Math.PI*2);ctx.fill(); }
@@ -134,57 +127,98 @@ const getGameHTML = (gameMode, humanCount, powerUps) => {
                   ctx.beginPath(); ctx.arc(p.x,p.y,4,0,Math.PI*2); ctx.fill();
                   if(p.life<=0) this.particles.splice(i,1);
                 });
-                ctx.restore(); // <--- END HARD CLOCKING CLIP
+                ctx.restore();
 
-                // Arena Border (Drawn over the clip)
                 ctx.strokeStyle='#FFF'; ctx.lineWidth=10; this._roundRect(ctx, CONFIG.pad, CONFIG.pad, aw, ah, 24); ctx.stroke();
 
-                // UI
-                if(joystick.active) {
-                  ctx.save(); ctx.globalAlpha=0.5; ctx.beginPath(); ctx.arc(joystick.startX,joystick.startY,55,0,Math.PI*2); ctx.strokeStyle='white'; ctx.lineWidth=3; ctx.stroke();
-                  ctx.beginPath(); ctx.arc(joystick.startX+joystick.vx*40,joystick.startY+joystick.vy*40,28,0,Math.PI*2); ctx.fillStyle='white'; ctx.fill(); ctx.restore();
-                }
+                // UI - MULTIPLE JOYSTICKS
+                joysticks.forEach((j, i) => {
+                  if(i >= CONFIG.humanCount) return;
+                  ctx.save(); ctx.globalAlpha = 0.4;
+                  ctx.beginPath(); ctx.arc(j.baseX, j.baseY, 50, 0, Math.PI*2); ctx.strokeStyle = j.color; ctx.lineWidth = 4; ctx.stroke();
+                  if(j.active) {
+                    ctx.globalAlpha = 0.7;
+                    ctx.beginPath(); ctx.arc(j.baseX + j.vx*35, j.baseY + j.vy*35, 25, 0, Math.PI*2); ctx.fillStyle = j.color; ctx.fill();
+                  } else {
+                    ctx.globalAlpha = 0.2;
+                    ctx.beginPath(); ctx.arc(j.baseX, j.baseY, 25, 0, Math.PI*2); ctx.fillStyle = j.color; ctx.fill();
+                  }
+                  ctx.restore();
+                });
 
                 ctx.fillStyle='white'; ctx.font='bold 18px sans-serif'; ctx.textAlign='center'; ctx.globalAlpha=0.8;
                 ctx.fillText('ROUND ' + round, CONFIG.w/2, 35);
                 if(gameState === STATE.ROUND_OVER) { ctx.globalAlpha=1; ctx.font='bold 60px sans-serif'; ctx.fillText("BOOM!", CONFIG.w/2, CONFIG.h/2); }
-                ctx.restore(); // END SHAKE
+                ctx.restore();
             }
             _roundRect(ctx, x, y, w, h, r) {
               ctx.beginPath(); ctx.moveTo(x+r,y); ctx.lineTo(x+w-r,y); ctx.quadraticCurveTo(x+w,y,x+w,y+r); ctx.lineTo(x+w,y+h-r); ctx.quadraticCurveTo(x+w,y+h,x+w-r,y+h); ctx.lineTo(x+r,y+h); ctx.quadraticCurveTo(x,y+h,x,y+h-r); ctx.lineTo(x,y+r); ctx.quadraticCurveTo(x,y,x+r,y); ctx.closePath();
             }
         }
 
-        const players = []; const startOff = 100;
+        const players = []; const startOff = 120;
         const pos = [{x:startOff,y:startOff},{x:CONFIG.w-startOff,y:startOff},{x:startOff,y:CONFIG.h-startOff},{x:CONFIG.w-startOff,y:CONFIG.h-startOff}];
         for(let i=0;i<4;i++) players.push(new Player(i,pos[i].x,pos[i].y,i<CONFIG.humanCount));
         
         const potato = new Potato(); let holderIdx = Math.floor(Math.random()*4);
         players[holderIdx].isHolding=true; potato.start(holderIdx);
 
-        let gameState=STATE.PLAYING, round=1, joystick={active:false,startX:0,startY:0,vx:0,vy:0};
+        let gameState=STATE.PLAYING, round=1;
         const renderer = new Renderer();
 
-        function resolveCollisions() {
-            for(let i=0; i<players.length; i++) {
-                for(let j=i+1; j<players.length; j++) {
-                    const p1 = players[i], p2 = players[j];
-                    if(!p1.isAlive || !p2.isAlive) continue;
-                    const dx = p2.x - p1.x, dy = p2.y - p1.y, d = Math.sqrt(dx*dx+dy*dy)||1;
-                    const minDist = 42; 
-                    if(d < minDist) {
-                        const angle = Math.atan2(dy, dx);
-                        const push = (minDist - d) * 0.12;
-                        p1.x -= Math.cos(angle) * push; p1.y -= Math.sin(angle) * push;
-                        p2.x += Math.cos(angle) * push; p2.y += Math.sin(angle) * push;
+        // JOYSTICKS STATE
+        window.joysticks = [];
+        function initJoysticks() {
+            const m = 80;
+            window.joysticks = [
+              { active: false, baseX: m, baseY: CONFIG.h-m, vx: 0, vy: 0, touchId: null, color: COLORS[0] }, // P1: Bottom-Left
+              { active: false, baseX: CONFIG.w-m, baseY: CONFIG.h-m, vx: 0, vy: 0, touchId: null, color: COLORS[1] }, // P2: Bottom-Right
+              { active: false, baseX: m, baseY: m+20, vx: 0, vy: 0, touchId: null, color: COLORS[2] }, // P3: Top-Left
+              { active: false, baseX: CONFIG.w-m, baseY: m+20, vx: 0, vy: 0, touchId: null, color: COLORS[3] }  // P4: Top-Right
+            ];
+        }
+        initJoysticks();
+        resizeCanvas();
+
+        canvas.addEventListener('touchstart', e => {
+            for(let t of e.changedTouches) {
+                // Determine which joystick by quadrant or distance
+                for(let i=0; i<CONFIG.humanCount; i++) {
+                    const j = joysticks[i];
+                    const dist = Math.sqrt((t.clientX-j.baseX)**2 + (t.clientY-j.baseY)**2);
+                    if(!j.active && dist < 120) {
+                        j.active = true; j.touchId = t.identifier; break;
                     }
                 }
             }
-        }
+        });
 
-        canvas.addEventListener('touchstart',e=>{ const t=e.touches[0]; joystick.active=true; joystick.startX=t.clientX; joystick.startY=t.clientY; });
-        canvas.addEventListener('touchmove',e=>{ e.preventDefault(); const t=e.touches[0]; const dx=t.clientX-joystick.startX, dy=t.clientY-joystick.startY, m=Math.sqrt(dx*dx+dy*dy)||1; joystick.vx=dx/m; joystick.vy=dy/m; players[0].vx=joystick.vx; players[0].vy=joystick.vy; });
-        canvas.addEventListener('touchend',()=>{ joystick.active=false; players[0].vx=0; players[0].vy=0; });
+        canvas.addEventListener('touchmove', e => {
+            e.preventDefault();
+            for(let t of e.changedTouches) {
+                for(let i=0; i<CONFIG.humanCount; i++){
+                    const j = joysticks[i];
+                    if(j.active && j.touchId === t.identifier) {
+                        const dx = t.clientX - j.baseX, dy = t.clientY - j.baseY;
+                        const dist = Math.sqrt(dx*dx + dy*dy) || 1;
+                        j.vx = dx/dist; j.vy = dy/dist;
+                        players[i].vx = j.vx; players[i].vy = j.vy;
+                    }
+                }
+            }
+        });
+
+        canvas.addEventListener('touchend', e => {
+            for(let t of e.changedTouches) {
+                for(let i=0; i<CONFIG.humanCount; i++){
+                    const j = joysticks[i];
+                    if(j.active && j.touchId === t.identifier) {
+                        j.active = false; j.touchId = null; j.vx = 0; j.vy = 0;
+                        players[i].vx = 0; players[i].vy = 0;
+                    }
+                }
+            }
+        });
 
         function loop() {
           const dt = 0.016;
@@ -203,7 +237,7 @@ const getGameHTML = (gameMode, humanCount, powerUps) => {
               }
               p.update(dt);
             });
-            resolveCollisions();
+            
             const h = players[holderIdx];
             players.forEach(p => {
               if(p.index !== h.index && p.isAlive && p.passImmunity <= 0) {
@@ -211,7 +245,9 @@ const getGameHTML = (gameMode, humanCount, powerUps) => {
                 if(d < 75) {
                   const giver = h; const receiver = p;
                   giver.isHolding=false; receiver.isHolding=true; 
-                  giver.passImmunity=0.8; holderIdx=receiver.index;
+                  // AI BALANCE: Higher immunity (1.8s) so it doesn't pass back immediately
+                  giver.passImmunity = 1.8; 
+                  holderIdx = receiver.index;
                   renderer.shake=15; for(let i=0;i<12;i++){ const a=Math.random()*6.28; const s=3+Math.random()*3; renderer.particles.push({x:receiver.x,y:receiver.y,vx:Math.cos(a)*s,vy:Math.sin(a)*s,life:0.8,color:receiver.color}); }
                 }
               }
@@ -230,9 +266,9 @@ const getGameHTML = (gameMode, humanCount, powerUps) => {
               }, 2000);
             }
           } else {
-            players.forEach(p => p.update(dt)); resolveCollisions();
+            players.forEach(p => p.update(dt));
           }
-          renderer.draw(players, potato, players[holderIdx], joystick, round, gameState);
+          renderer.draw(players, potato, players[holderIdx], joysticks, round, gameState);
           requestAnimationFrame(loop);
         }
         loop();
